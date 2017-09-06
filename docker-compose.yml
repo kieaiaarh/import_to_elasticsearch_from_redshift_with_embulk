@@ -1,0 +1,32 @@
+version: '3'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.4.1
+    environment:
+      # - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+      - xpack.watcher.enabled=false
+      - xpack.graph.enabled=false
+      - xpack.monitoring.history.duration=1d
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    container_name: elasticsearch
+    networks:
+      - elastic
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+  kibana:
+    image: docker.elastic.co/kibana/kibana:5.4.1
+    environment:
+      - xpack.reporting.enabled=false
+      - xpack.monitoring.enabled=false
+    container_name: kibana
+    networks:
+      - elastic
+    links:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+networks:
+  elastic:

@@ -1,0 +1,59 @@
+in:
+  type: redshift
+  host: {{ env.REDSHIFT_HOST }}
+  user: {{ env.REDSHIFT_USER }}
+  password: {{ env.REDSHIFT_PASSWORD }}
+  database: {{ env.REDSHIFT_DATABASE }}
+  column_options:
+    date: {type: timestamp, timestamp_format: "%Y-%m-%d", timezone: "+0900"}
+  query: |
+    select
+      date
+      , sum(case n_action when 1 then 1 else 0 end) as one
+      , sum(case n_action when 2 then 1 else 0 end) as two
+      , sum(case n_action when 3 then 1 else 0 end) as three
+      , sum(case n_action when 4 then 1 else 0 end) as four
+      , sum(case when n_action >= 5 then 1 else 0 end) as gte_five
+      , count(email) as people
+      , sum(n_action) as number
+    from (
+      SELECT
+        date
+        , email
+        , count(*) as n_action
+      FROM (
+        SELECT
+          CAST(CONVERT_TIMEZONE('JST', TIMESTAMP 'epoch' + b.reg_date * INTERVAL '1 second') AS DATE) AS date,
+          bu.action_user_id,
+          bu.email_id_hex || bu.email_domain_hex AS email
+        FROM wedddb.b_action_reserve AS b
+          INNER JOIN wedddb.b_action_user AS bu ON b.action_user_id = bu.action_user_id
+        WHERE
+          (CONVERT_TIMEZONE('JST', TIMESTAMP 'epoch' + b.reg_date * INTERVAL '1 second') >= '2016-01-01'AND CONVERT_TIMEZONE('JST', TIMESTAMP 'epoch' + b.reg_date * INTERVAL '1 second') < CONVERT_TIMEZONE ('JST',GETDATE()))
+          AND b.reply_st <= 97
+          AND b.client_id <> 414
+          AND ((bu.aff_code <> 'minna_m_action' AND bu.aff_code <> 'outside_action') OR bu.aff_code IS NULL)
+        UNION ALL
+          SELECT
+            CAST(CONVERT_TIMEZONE('JST', TIMESTAMP 'epoch' + b.reg_date * INTERVAL '1 second') AS DATE) AS date,
+            bu.action_user_id,
+            bu.email_id_hex || bu.email_domain_hex AS email
+          FROM wedddb.b_fair_app AS b
+            INNER JOIN wedddb.b_action_user AS bu ON b.action_user_id = bu.action_user_id
+          WHERE
+            (CONVERT_TIMEZONE('JST', TIMESTAMP 'epoch' + b.reg_date * INTERVAL '1 second') >= '2016-01-01'AND CONVERT_TIMEZONE('JST', TIMESTAMP 'epoch' + b.reg_date * INTERVAL '1 second') < CONVERT_TIMEZONE ('JST',GETDATE()))
+            AND b.reply_st <= 97
+            AND b.client_id <> 414
+            AND ((bu.aff_code <> 'minna_m_action' AND bu.aff_code <> 'outside_action') OR bu.aff_code IS NULL)
+        )
+      GROUP BY date, email
+    )
+    group by date
+    order by date
+out:
+  type: elasticsearch
+  mode: insert
+  nodes:
+    - {host: localhost, port: 9200}
+  index: web_actions
+  index_type: daily_data
