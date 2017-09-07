@@ -1,0 +1,28 @@
+in:
+  type: file
+  path_prefix: tmp
+  parser:
+    charset: UTF-8
+    newline: LF
+    type: jsonpath
+    delimiter: ','
+    quote: '"'
+    escape: '"'
+    trim_if_not_quoted: false
+    skip_header_lines: 2
+    allow_extra_columns: false
+    allow_optional_columns: false
+    columns:
+    - {name: date, type: timestamp, format: '%Y-%m-%d'}
+    - {name: clicks, type: long}
+    - {name: ctr, type: double}
+    - {name: impressions, type: long}
+    - {name: keyword, type: string}
+    - {name: position, type: double}
+out:
+  type: elasticsearch
+  mode: insert
+  nodes:
+    - {host: localhost, port: 9200}
+  index: search_analytics
+  index_type: daily_data
